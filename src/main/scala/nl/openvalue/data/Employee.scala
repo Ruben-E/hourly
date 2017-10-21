@@ -1,8 +1,6 @@
 package nl.openvalue.data
 
-import java.util.UUID
-
-import akka.actor.ActorLogging
+import akka.actor.{ActorLogging, Status}
 import akka.persistence.PersistentActor
 import nl.openvalue.data.EmployeeProtocol._
 
@@ -12,7 +10,7 @@ case class Employee(id: String, firstName: String, lastName: String, emailAddres
 
 object Employee {
   def hire(cmd: HireEmployee): Employee = {
-    val id = UUID.randomUUID().toString
+    val id = cmd.emailAddress
     Employee(id, cmd.firstName, cmd.lastName, cmd.emailAddress)
   }
 }
@@ -49,9 +47,10 @@ class EmployeeProcessor extends PersistentActor with ActorLogging {
   override def receiveCommand: Receive = {
     case cmd: HireEmployee =>
       hireEmployee(cmd).fold(
-        f => sender ! f,
+        f => sender ! Status.Failure(f),
         e => persist(EmployeeHired(e.id, e.firstName, e.lastName, e.emailAddress)) { event =>
           context.system.eventStream.publish(event)
+          sender ! Status.Success(e)
         }
       )
     case GetEmployee(id) => sender ! state.get(id)
@@ -63,7 +62,7 @@ class EmployeeProcessor extends PersistentActor with ActorLogging {
   }
 
   def hireEmployee(cmd: HireEmployee): Try[Employee] = {
-    val employee = Employee.hire(cmd)
+    val employee = Employee.hire(cmd) // TODO: Check if an employee with that emailaddress already exists
     updateState(employee)
     log.info(s"Employee [$employee] hired ")
     Success(employee)

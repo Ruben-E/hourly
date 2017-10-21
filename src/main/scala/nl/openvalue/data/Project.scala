@@ -2,13 +2,17 @@ package nl.openvalue.data
 
 import java.util.UUID
 
-import akka.actor.ActorLogging
+import akka.actor.{ActorLogging, Status}
 import akka.persistence.PersistentActor
 import nl.openvalue.data.ProjectProtocol._
 
-import scala.util.{Success, Try}
+import scala.util.{Failure, Success, Try}
 
-case class Project(id: String, name: String, employeeIds: Set[String] = Set.empty)
+case class Project(id: String, name: String, employeeIds: Set[String] = Set.empty) {
+  def assignEmployee(id: String): Project = {
+    copy(employeeIds = employeeIds + id)
+  }
+}
 
 object Project {
   def create(cmd: CreateProject): Project = {
@@ -20,12 +24,14 @@ object Project {
 object ProjectProtocol {
 
   case class CreateProject(name: String)
+  case class AssignEmployeeToProject(projectId: String, employeeId: String)
 
   case class GetProject(id: String)
 
   case object GetProjects
 
   case class ProjectCreated(id: String, name: String)
+  case class EmployeeAssignedToProject(projectId: String, employeeId: String)
 
 }
 
@@ -49,9 +55,18 @@ class ProjectProcessor extends PersistentActor with ActorLogging {
   override def receiveCommand: Receive = {
     case cmd: CreateProject =>
       createProject(cmd).fold(
-        f => sender ! f,
+        f => sender ! Status.Failure(f),
         p => persist(ProjectCreated(p.id, p.name)) { event =>
           context.system.eventStream.publish(event)
+          sender ! Status.Success(p)
+        }
+      )
+    case cmd: AssignEmployeeToProject =>
+      assignEmployeeToProject(cmd).fold(
+        f => sender ! Status.Failure(f),
+        p => persist(EmployeeAssignedToProject(p.id, cmd.employeeId)) { event =>
+          context.system.eventStream.publish(event)
+          sender ! Status.Success(p)
         }
       )
     case GetProject(id) => sender ! state.get(id)
@@ -67,5 +82,15 @@ class ProjectProcessor extends PersistentActor with ActorLogging {
     updateState(project)
     log.info(s"Project [$project] created ")
     Success(project)
+  }
+
+  def assignEmployeeToProject(cmd: AssignEmployeeToProject): Try[Project] = {
+    val maybeProject = state.get(cmd.projectId).map(_.assignEmployee(cmd.employeeId))
+    maybeProject match {
+      case None => Failure(new IllegalStateException("Employee not found"))
+      case Some(p) =>
+        updateState(p)
+        Success(p)
+    }
   }
 }
