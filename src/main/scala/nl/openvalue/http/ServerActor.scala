@@ -15,7 +15,7 @@ import spray.json._
 import scala.util.Success
 import scala.util.Failure
 
-class ServerActor(employeeActor: ActorRef, projectActor: ActorRef) extends Actor {
+class ServerActor(employeeActor: ActorRef, projectActor: ActorRef, workWeekActor: ActorRef, workWeekItemActor: ActorRef) extends Actor {
   override def receive: Receive = {
     case _ =>
   }
@@ -45,7 +45,7 @@ class ServerActor(employeeActor: ActorRef, projectActor: ActorRef) extends Actor
 
           // query parsed successfully, time to execute it!
           case Success(queryAst) ⇒
-            complete(Executor.execute(SchemaDefinition.DefaultSchema, queryAst, new Repository(employeeActor, projectActor),
+            complete(Executor.execute(SchemaDefinition.DefaultSchema, queryAst, new Repository(employeeActor, projectActor, workWeekActor, workWeekItemActor),
               variables = vars,
               operationName = operation)
               .map(OK → _)
