@@ -5,7 +5,7 @@ import akka.pattern.ask
 import akka.util.Timeout
 import nl.openvalue.data.{Employee, Project}
 import nl.openvalue.data.EmployeeProtocol._
-import nl.openvalue.data.ProjectProtocol.GetProjects
+import nl.openvalue.data.ProjectProtocol.{AssignEmployeeToProject, CreateProject, GetProjects}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
@@ -28,5 +28,17 @@ class Repository(employeeActor: ActorRef, projectActor: ActorRef)(implicit conte
 
   def getProjects: Future[List[Project]] = {
     (projectActor ? GetProjects).mapTo[List[Project]]
+  }
+
+  def hireEmployee(emailAddress: String, firstName: String, lastName: String): Future[Employee] = {
+    (employeeActor ? HireEmployee(firstName, lastName, emailAddress)).mapTo[Employee]
+  }
+
+  def createProject(name: String): Future[Project] = {
+    (projectActor ? CreateProject(name)).mapTo[Project]
+  }
+
+  def assignEmployeeToProject(projectId: String, employeeId: String): Future[Project] = {
+    (projectActor ? AssignEmployeeToProject(projectId, employeeId)).mapTo[Project]
   }
 }

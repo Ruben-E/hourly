@@ -6,6 +6,12 @@ import sangria.schema._
 object SchemaDefinition {
 
   val ID = Argument("id", StringType)
+  val ProjectId = Argument("projectId", StringType)
+  val EmployeeId = Argument("employeeId", StringType)
+  val Name = Argument("name", StringType)
+  val FirstName = Argument("firstName", StringType)
+  val LastName = Argument("lastName", StringType)
+  val EmailAddress = Argument("emailAddress", StringType)
 
   val Employee = ObjectType(
     "Employee", fields[Repository, Employee](
@@ -33,5 +39,12 @@ object SchemaDefinition {
       Field("projects", ListType(Project), resolve = ctx => ctx.ctx.getProjects)
     ))
 
-  val DefaultSchema = Schema(Query)
+  val Mutation = ObjectType("Mutation", fields[Repository, Unit](
+    Field("addEmployee", Employee, arguments = FirstName :: LastName :: EmailAddress :: Nil, resolve = ctx ⇒ ctx.ctx.hireEmployee(ctx.arg(EmailAddress), ctx.arg(FirstName), ctx.arg(LastName))),
+    Field("addProject", Project, arguments = Name :: Nil, resolve = ctx ⇒ ctx.ctx.createProject(ctx.arg(Name))),
+    Field("assignEmployeeToProject", Project, arguments = ProjectId :: EmployeeId :: Nil, resolve = ctx ⇒ ctx.ctx.assignEmployeeToProject(ctx.arg(ProjectId), ctx.arg(EmployeeId))),
+  ))
+
+
+  val DefaultSchema = Schema(Query, Some(Mutation))
 }
